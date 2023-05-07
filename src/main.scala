@@ -12,7 +12,6 @@ package badlang
 
 import cats.data.OptionT
 import cats.effect.IO
-import cats.effect.implicits._
 import cats.effect.kernel.Resource
 import cats.implicits._
 import cats.parse.Caret

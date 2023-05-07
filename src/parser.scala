@@ -1,7 +1,5 @@
 package badlang
 
-import cats.Applicative
-import cats.Functor
 import cats.data.NonEmptyList
 import cats.data.NonEmptyList as NEL
 import cats.implicits.*
