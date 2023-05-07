@@ -53,6 +53,38 @@ case class SourceFile[F[_]](
 
 object parser {
 
+  extension (
+    sf: SourceFile[T]
+  )
+
+    def findDefinitionAt(
+      pos: Position
+    ): Option[T[Name]] = sf.ops.value.map(_.value).collectFirst {
+      case Op.Let(name, _) if name.range.contains(pos) => name
+    }
+
+    def findReferences(
+      of: Name
+    ): List[T[Name]] = sf.ops.value.map(_.value).flatMap {
+      case Op.Inc(name) if name.value == of => name :: Nil
+      case Op.Show(names)                   => names.value.find(_.value == of)
+      case (_: Op.Let[_]) | (_: Op.Inc[_])  => Nil
+    }
+
+    def findDefinition(
+      of: Name
+    ): Option[T[Name]] = sf.ops.value.map(_.value).collectFirst {
+      case Op.Let(name, _) if name.value == of => name
+    }
+
+    def findReferenceAt(
+      pos: Position
+    ): Option[T[Name]] = sf.ops.value.map(_.value).collectFirstSome {
+      case Op.Inc(name) if name.range.contains(pos) => name.some
+      case Op.Show(names)                           => names.value.find(_.range.contains(pos))
+      case (_: Op.Let[_]) | (_: Op.Inc[_])          => None
+    }
+
   case class T[A](
     value: A,
     range: Range,

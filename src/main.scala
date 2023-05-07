@@ -112,19 +112,10 @@ object Server {
 
             import parser.toModel
 
-            val declarationSite = file.ops.value.map(_.value).collectFirst {
-              case Op.Let(name, _) if name.range.contains(in.params.position.toModel) => name
-            }
-
-            def useSites(
-              of: Name
-            ) = file.ops.value.map(_.value).flatMap {
-              case Op.Inc(name) if name.value == of => name :: Nil
-              case Op.Show(names)                   => names.value.find(_.value == of)
-              case (_: Op.Let[_]) | (_: Op.Inc[_])  => Nil
-            }
-
-            declarationSite.toList.flatMap(sym => useSites(sym.value))
+            file
+              .findDefinitionAt(in.params.position.toModel)
+              .toList
+              .flatMap(sym => file.findReferences(sym.value))
           }
           .map {
             _.map { sym =>
@@ -137,22 +128,11 @@ object Server {
       .handleRequest(textDocument.definition) { in =>
         OptionT(docs.getParsed(in.params.textDocument.uri))
           .subflatMap { file =>
-
             import parser.toModel
 
-            val useSiteSymbol = file.ops.value.map(_.value).collectFirstSome {
-              case Op.Inc(name) if name.range.contains(in.params.position.toModel) => name.some
-              case Op.Show(names) => names.value.find(_.range.contains(in.params.position.toModel))
-              case (_: Op.Let[_]) | (_: Op.Inc[_]) => None
-            }
-
-            def declarationSite(
-              of: Name
-            ) = file.ops.value.map(_.value).collectFirst {
-              case Op.Let(name, _) if name.value == of => name
-            }
-
-            useSiteSymbol.flatMap(sym => declarationSite(sym.value))
+            file
+              .findReferenceAt(in.params.position.toModel)
+              .flatMap(sym => file.findDefinition(sym.value))
           }
           .map { sym =>
             Definition(Location(in.params.textDocument.uri, sym.range.toLSP))
