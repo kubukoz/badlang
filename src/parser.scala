@@ -1,6 +1,9 @@
 package badlang
 
+import cats.Applicative
+import cats.Functor
 import cats.data.NonEmptyList
+import cats.data.NonEmptyList as NEL
 import cats.implicits.*
 import cats.parse.Numbers
 
@@ -56,6 +59,25 @@ object parser {
   extension (
     sf: SourceFile[T]
   )
+
+    def names: List[T[Name]] = sf.ops.value.flatMap {
+      _.value
+        .match {
+          case Op.Let(name, _) => name.pure[NEL]
+          case Op.Inc(name)    => name.pure[NEL]
+          case Op.Show(names)  => names.value
+        }
+        .toList
+    }
+
+    def findNameAt(
+      pos: Position
+    ): Option[T[Name]] = sf.ops.value.map(_.value).collectFirstSome {
+      case Op.Let(name, _) if name.range.contains(pos) => name.some
+      case Op.Inc(name) if name.range.contains(pos)    => name.some
+      case Op.Show(names)                              => names.value.find(_.range.contains(pos))
+      case (_: Op.Let[_]) | (_: Op.Inc[_])             => None
+    }
 
     def findDefinitionAt(
       pos: Position

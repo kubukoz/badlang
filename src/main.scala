@@ -43,6 +43,8 @@ import langoustine.lsp.structures.Position
 import langoustine.lsp.structures.RelatedFullDocumentDiagnosticReport
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
+import langoustine.lsp.structures.TextEdit
+import langoustine.lsp.structures.WorkspaceEdit
 
 import java.nio.file.NoSuchFileException
 
@@ -72,6 +74,7 @@ object Server {
               ),
               definitionProvider = Opt(true),
               referencesProvider = Opt(true),
+              renameProvider = Opt(true),
             )
           )
         )
@@ -104,6 +107,34 @@ object Server {
             ShowMessageParams(MessageType.Info, "hello from badlang server!"),
           )
       )
+      .handleRequest(textDocument.rename) { in =>
+        import parser.*
+        OptionT(docs.getParsed(in.params.textDocument.uri))
+          .subflatMap { file =>
+            file
+              .findNameAt(in.params.position.toModel)
+              .map(_.value)
+              .map { name =>
+                val edits =
+                  file
+                    .names
+                    .filter(_.value == name)
+                    .map { n =>
+                      TextEdit(n.range.toLSP, in.params.newName)
+                    }
+                    .toVector
+
+                WorkspaceEdit(
+                  changes = Opt(
+                    Map(in.params.textDocument.uri -> edits)
+                  )
+                )
+
+              }
+          }
+          .value
+          .map(_.toOpt)
+      }
       .handleRequest(textDocument.references) { in =>
         docs
           .getParsed(in.params.textDocument.uri)
