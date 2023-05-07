@@ -71,6 +71,7 @@ object Server {
                 )
               ),
               definitionProvider = Opt(true),
+              referencesProvider = Opt(true),
             )
           )
         )
@@ -103,6 +104,36 @@ object Server {
             ShowMessageParams(MessageType.Info, "hello from badlang server!"),
           )
       )
+      .handleRequest(textDocument.references) { in =>
+        docs
+          .getParsed(in.params.textDocument.uri)
+          .nested
+          .map { file =>
+
+            import parser.toModel
+
+            val declarationSite = file.ops.value.map(_.value).collectFirst {
+              case Op.Let(name, _) if name.range.contains(in.params.position.toModel) => name
+            }
+
+            def useSites(
+              of: Name
+            ) = file.ops.value.map(_.value).flatMap {
+              case Op.Inc(name) if name.value == of => name :: Nil
+              case Op.Show(names)                   => names.value.find(_.value == of)
+              case (_: Op.Let[_]) | (_: Op.Inc[_])  => Nil
+            }
+
+            declarationSite.toList.flatMap(sym => useSites(sym.value))
+          }
+          .map {
+            _.map { sym =>
+              Location(in.params.textDocument.uri, sym.range.toLSP)
+            }.toVector
+          }
+          .value
+          .map(_.toOpt)
+      }
       .handleRequest(textDocument.definition) { in =>
         OptionT(docs.getParsed(in.params.textDocument.uri))
           .subflatMap { file =>
