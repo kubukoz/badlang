@@ -89,7 +89,7 @@ object parser {
       of: Name
     ): List[T[Name]] = sf.ops.value.map(_.value).flatMap {
       case Op.Inc(name) if name.value == of => name :: Nil
-      case Op.Show(names)                   => names.value.find(_.value == of)
+      case Op.Show(names)                   => names.value.filter(_.value == of)
       case (_: Op.Let[_]) | (_: Op.Inc[_])  => Nil
     }
 
