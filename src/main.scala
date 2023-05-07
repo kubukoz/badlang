@@ -14,8 +14,6 @@ import cats.implicits._
 import fs2.io.file.Files
 import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
-import io.circe.Encoder
-import io.circe.KeyEncoder
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
 import langoustine.lsp.aliases.TextDocumentContentChangeEvent
@@ -31,11 +29,7 @@ import langoustine.lsp.runtime.Opt
 import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
-import org.http4s.HttpRoutes
 import org.http4s.Uri
-import org.http4s.ember.server.EmberServerBuilder
-
-import scala.concurrent.duration.Duration
 
 trait DocumentCache[Uri] {
 
@@ -160,44 +154,6 @@ object Server {
             ShowMessageParams(MessageType.Info, "hello from badlang server!"),
           )
       )
-
-}
-
-object Api {
-
-  def run(
-    cache: DocumentCache[DocumentUri],
-    docs: TextDocuments,
-  ): Resource[IO, org.http4s.server.Server] = {
-    import org.http4s.dsl.io._
-    import org.http4s.circe.CirceEntityCodec._
-    import io.circe.generic.auto._
-
-    given KeyEncoder[DocumentUri] = KeyEncoder[String].contramap(_.value)
-
-    EmberServerBuilder
-      .default[IO]
-      .withShutdownTimeout(Duration.Zero)
-      .withHttpApp(
-        HttpRoutes
-          .of[IO] {
-            case GET -> Root / "docs" / "cache" =>
-              cache
-                .getKeys
-                .flatMap { keys =>
-                  keys.traverse { key =>
-                    docs.get(key).map(v => key -> v.content)
-                  }
-                }
-                .map(_.toMap)
-                .flatMap(Ok(_))
-            case GET -> Root / "docs" / uri => docs.get(DocumentUri(uri)).flatMap(Ok(_))
-
-          }
-          .orNotFound
-      )
-      .build
-  }
 
 }
 
