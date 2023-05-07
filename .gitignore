@@ -1,0 +1,8 @@
+**/target
+.direnv/
+.idea/
+.vscode/
+**/.DS_Store
+.sbt
+.version
+badlang-lsp

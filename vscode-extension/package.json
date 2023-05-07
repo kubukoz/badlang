@@ -1,0 +1,58 @@
+{
+  "name": "badlang",
+  "displayName": "Badlang",
+  "description": "Example vscode extension for a language server and client",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.69.0"
+  },
+  "publisher": "kubukoz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kubukoz/badlang"
+  },
+  "homepage": "https://github.com/kubukoz/badlang",
+  "categories": [
+    "Other"
+  ],
+  "scripts": {
+    "compile": "tsc --project .",
+    "watch": "tsc --project . --watch",
+    "test": "yarn compile && node ./out/test/runTest.js"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "badlang",
+        "aliases": [
+          "Badlang"
+        ],
+        "extensions": [
+          ".bad"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "badlang",
+        "scopeName": "source.badlang",
+        "path": "./grammar.tmLanguage.json"
+      }
+    ]
+  },
+  "main": "./out/extension",
+  "dependencies": {
+    "semver": "^7.3.7",
+    "vscode-languageclient": "^8.0.2"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^18.6.2",
+    "@types/vscode": "^1.69.0",
+    "@vscode/test-electron": "^2.2.0",
+    "mocha": "^10.1.0",
+    "typescript": "^4.7.4",
+    "vsce": "^2.10.0"
+  }
+}
