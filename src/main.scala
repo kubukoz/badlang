@@ -6,13 +6,10 @@
 //> using lib "io.circe::circe-generic:0.14.5"
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
 //> using option "-Wunused:all"
-import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.implicits._
 import cats.effect.kernel.Resource
 import cats.implicits._
-import fs2.io.file.Files
-import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
@@ -29,85 +26,11 @@ import langoustine.lsp.runtime.Opt
 import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
-import org.http4s.Uri
-
-trait DocumentCache[Uri] {
-
-  def getKeys: IO[List[Uri]]
-
-  def get(
-    uri: Uri
-  ): IO[Option[String]]
-
-  def set(
-    uri: Uri,
-    content: String,
-  ): IO[Unit]
-
-  def remove(
-    uri: Uri
-  ): IO[Unit]
-
-}
-
-object DocumentCache {
-
-  def make[Uri]: IO[DocumentCache[Uri]] = IO.ref(Map.empty[Uri, String]).map { state =>
-    new DocumentCache {
-      override def getKeys: IO[List[Uri]] = state.get.map(_.keys.toList)
-      override def get(
-        uri: Uri
-      ): IO[Option[String]] = state.get.map(_.get(uri))
-
-      override def set(
-        uri: Uri,
-        content: String,
-      ): IO[Unit] = state.update(_.updated(uri, content))
-
-      override def remove(
-        uri: Uri
-      ): IO[Unit] = state.update(_ - uri)
-    }
-  }
-
-}
-
-trait TextDocuments {
-
-  def get(
-    uri: DocumentUri
-  ): IO[Document]
-
-}
 
 case class Document(
   content: String,
   cached: Boolean,
 )
-
-object TextDocuments {
-
-  def cached(
-    cache: DocumentCache[DocumentUri]
-  ): TextDocuments =
-    new TextDocuments {
-
-      override def get(
-        uri: DocumentUri
-      ): IO[Document] = OptionT(cache.get(uri))
-        .map(Document(_, true))
-        .getOrElseF(
-          Files[IO]
-            .readAll(Path(Uri.fromString(uri.value).toTry.get.path.renderString))
-            .through(fs2.text.utf8.decode[IO])
-            .compile
-            .string
-            .map(Document(_, false))
-        )
-
-    }
-
-}
 
 object Server {
 
