@@ -12,15 +12,6 @@
       "include": "#numbers"
     },
     {
-      "include": "#operators"
-    },
-    {
-      "include": "#booleans"
-    },
-    {
-      "include": "#nulls"
-    },
-    {
       "include": "#keywords"
     }
   ],
@@ -50,13 +41,13 @@
       "patterns": [
         {
           "name": "constant.numeric",
-          "match": "[^\\w]\\d+(\\.\\d+)?"
+          "match": "\\b\\d+(\\.\\d+)?\\b"
         }
       ]
     },
     "keywords": {
       "name": "keyword",
-      "patterns": [{ "name": "keyword", "match": "\\b(LET|INC|SHOW|EXIT)\\b" }]
+      "patterns": [{ "name": "keyword", "match": "\\b(LET|INC|SHOW)\\b" }]
     }
   },
   "scopeName": "source.badlang"

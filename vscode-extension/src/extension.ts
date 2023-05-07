@@ -9,7 +9,7 @@ export function activate(context: ExtensionContext) {
     "badlang",
     "Badlang",
     {
-      command: "/Users/kubukoz/projects/badlang/badlang-lsp"
+      command: "/Users/kubukoz/projects/badlang/launch.sh"
     },
     {
       documentSelector: [{ language: "badlang" }],

@@ -18,6 +18,9 @@
             pkgs.sbt
             pkgs.jless
           ];
+          nativeBuildInputs = [
+            pkgs.s2n-tls
+          ];
         };
       }
     );
