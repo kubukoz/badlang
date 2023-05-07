@@ -1,3 +1,5 @@
+package badlang
+
 import cats.effect.IO
 
 trait DocumentCache[Uri] {

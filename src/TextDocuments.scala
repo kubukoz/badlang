@@ -1,3 +1,5 @@
+package badlang
+
 import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.implicits._

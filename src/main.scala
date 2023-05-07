@@ -6,18 +6,27 @@
 //> using lib "co.fs2::fs2-io::3.7.0-RC5"
 //> using lib "io.circe::circe-generic:0.14.5"
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
+//> using lib "org.typelevel::cats-parse::0.3.9"
 //> using option "-Wunused:all"
+package badlang
+
+import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.implicits._
 import cats.effect.kernel.Resource
 import cats.implicits._
+import cats.parse.Caret
+import cats.parse.LocationMap
 import fs2.io.file.Files
 import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
+import langoustine.lsp.aliases.Definition
+import langoustine.lsp.aliases.DocumentDiagnosticReport
 import langoustine.lsp.aliases.TextDocumentContentChangeEvent
 import langoustine.lsp.app.LangoustineApp
+import langoustine.lsp.enumerations.DiagnosticSeverity
 import langoustine.lsp.enumerations.MessageType
 import langoustine.lsp.enumerations.TextDocumentSyncKind
 import langoustine.lsp.requests.initialize
@@ -26,7 +35,12 @@ import langoustine.lsp.requests.textDocument
 import langoustine.lsp.requests.window
 import langoustine.lsp.runtime.DocumentUri
 import langoustine.lsp.runtime.Opt
+import langoustine.lsp.structures.Diagnostic
+import langoustine.lsp.structures.DiagnosticOptions
 import langoustine.lsp.structures.InitializeResult
+import langoustine.lsp.structures.Location
+import langoustine.lsp.structures.Position
+import langoustine.lsp.structures.RelatedFullDocumentDiagnosticReport
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
 
@@ -49,7 +63,14 @@ object Server {
         IO(
           InitializeResult(capabilities =
             ServerCapabilities(
-              textDocumentSync = Opt(TextDocumentSyncKind.Full)
+              textDocumentSync = Opt(TextDocumentSyncKind.Full),
+              diagnosticProvider = Opt(
+                DiagnosticOptions(
+                  interFileDependencies = false,
+                  workspaceDiagnostics = false,
+                )
+              ),
+              definitionProvider = Opt(true),
             )
           )
         )
@@ -82,6 +103,81 @@ object Server {
             ShowMessageParams(MessageType.Info, "hello from badlang server!"),
           )
       )
+      .handleRequest(textDocument.definition) { in =>
+        OptionT(docs.getParsed(in.params.textDocument.uri))
+          .subflatMap { file =>
+
+            import parser.toModel
+
+            val useSiteSymbol = file.ops.value.map(_.value).collectFirstSome {
+              case Op.Inc(name) if name.range.contains(in.params.position.toModel) => name.some
+              case Op.Show(names) => names.value.find(_.range.contains(in.params.position.toModel))
+              case (_: Op.Let[_]) | (_: Op.Inc[_]) => None
+            }
+
+            def declarationSite(
+              of: Name
+            ) = file.ops.value.map(_.value).collectFirst {
+              case Op.Let(name, _) if name.value == of => name
+            }
+
+            useSiteSymbol.flatMap(sym => declarationSite(sym.value))
+          }
+          .map { sym =>
+            Definition(Location(in.params.textDocument.uri, sym.range.toLSP))
+          }
+          .value
+          .map(_.toOpt)
+      }
+      .handleRequest(textDocument.diagnostic) { in =>
+        docs.get(in.params.textDocument.uri).map(_.content).map { fileText =>
+          val map = LocationMap(fileText)
+          val lastOffset = map.toCaretUnsafe(fileText.length)
+          extension (
+            c: Caret
+          ) def toLSPPosition: Position = Position(c.line, c.col)
+
+          val items =
+            parser.parse(fileText) match {
+              case Right(_) => Vector.empty
+              case Left((msg, offset)) =>
+                Vector(
+                  Diagnostic(
+                    range = langoustine
+                      .lsp
+                      .structures
+                      .Range(
+                        map.toCaretUnsafe(offset).toLSPPosition,
+                        lastOffset.toLSPPosition,
+                      ),
+                    severity = Opt(DiagnosticSeverity.Error),
+                    message = "Parsing error: expected " + msg,
+                  )
+                )
+            }
+
+          DocumentDiagnosticReport(
+            RelatedFullDocumentDiagnosticReport(
+              kind = "full",
+              items = items,
+            )
+          )
+        }
+      }
+
+  import parser.T
+
+  extension (
+    docs: TextDocuments
+  )
+
+    def getParsed(
+      uri: DocumentUri
+    ): IO[Option[SourceFile[T]]] = docs.get(uri).map(td => parser.parse(td.content).toOption)
+
+  extension [A](
+    option: Option[A]
+  ) def toOpt: Opt[A] = option.fold(Opt.empty)(Opt(_))
 
 }
 
