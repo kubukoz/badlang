@@ -27,8 +27,7 @@ object TextDocuments {
         .map(Document(_, true))
         .getOrElseF(
           Files[IO]
-            .readAll(Path(Uri.fromString(uri.value).toTry.get.path.renderString))
-            .through(fs2.text.utf8.decode[IO])
+            .readUtf8(Path(Uri.fromString(uri.value).toTry.get.path.renderString))
             .compile
             .string
             .map(Document(_, false))

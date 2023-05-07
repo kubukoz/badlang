@@ -10,6 +10,8 @@ import cats.effect.IO
 import cats.effect.implicits._
 import cats.effect.kernel.Resource
 import cats.implicits._
+import fs2.io.file.Files
+import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
@@ -26,6 +28,9 @@ import langoustine.lsp.runtime.Opt
 import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
+
+import java.io.FileNotFoundException
+import java.nio.file.NoSuchFileException
 
 case class Document(
   content: String,
@@ -82,17 +87,44 @@ object Server {
 
 object main extends CrossPlatformIOApp with LangoustineApp {
 
+  // Workaround for vscode not killing the process in time
+  val killEmAll = {
+    val killOthers = Files[IO]
+      .readUtf8(Path("badlang.pid"))
+      .compile
+      .string
+      .map(_.trim.toLong)
+      .attemptNarrow[NoSuchFileException]
+      .flatMap {
+        _.traverse_ { pid =>
+          IO {
+            import sys.process._
+            s"kill $pid".!!
+          }.attempt
+        }
+      }
+
+    killOthers *> fs2
+      .Stream
+      .emit(ProcessHandle.current().pid().toString)
+      .through(fs2.text.utf8.encode[IO])
+      .through(Files[IO].writeAll(Path("badlang.pid")))
+      .compile
+      .drain
+  }
+
   override def server(
     args: List[String]
-  ): Resource[IO, LSPBuilder[IO]] = DocumentCache
-    .make[DocumentUri]
-    .toResource
-    .flatMap { cache =>
-      val docs = TextDocuments.cached(cache)
+  ): Resource[IO, LSPBuilder[IO]] =
+    killEmAll.toResource *> DocumentCache
+      .make[DocumentUri]
+      .toResource
+      .flatMap { cache =>
+        val docs = TextDocuments.cached(cache)
 
-      Api
-        .run(cache, docs)
-        .as(Server.make(cache, docs))
-    }
+        Api
+          .run(cache, docs)
+          .as(Server.make(cache, docs))
+      }
 
 }
