@@ -1,8 +1,9 @@
 //> using scala "3.3.0-RC5"
 //> using lib "tech.neander::langoustine-app::0.0.20"
-//> using lib "org.http4s::http4s-ember-server::0.23.18"
-//> using lib "org.http4s::http4s-circe::0.23.18"
-//> using lib "org.http4s::http4s-dsl::0.23.18"
+//> using lib "org.http4s::http4s-ember-server::0.23.19-RC3"
+//> using lib "org.http4s::http4s-circe::0.23.19-RC3"
+//> using lib "org.http4s::http4s-dsl::0.23.19-RC3"
+//> using lib "co.fs2::fs2-io::3.7.0-RC5"
 //> using lib "io.circe::circe-generic:0.14.5"
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
 //> using option "-Wunused:all"
@@ -29,7 +30,6 @@ import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
 
-import java.io.FileNotFoundException
 import java.nio.file.NoSuchFileException
 
 case class Document(
@@ -97,16 +97,19 @@ object main extends CrossPlatformIOApp with LangoustineApp {
       .attemptNarrow[NoSuchFileException]
       .flatMap {
         _.traverse_ { pid =>
-          IO {
-            import sys.process._
-            s"kill $pid".!!
-          }.attempt
+          fs2
+            .io
+            .process
+            .ProcessBuilder("kill", pid.toString)
+            .spawn[IO]
+            .use(_.exitValue)
+            .void
         }
       }
 
     killOthers *> fs2
       .Stream
-      .emit(ProcessHandle.current().pid().toString)
+      .emit(getpid().toString)
       .through(fs2.text.utf8.encode[IO])
       .through(Files[IO].writeAll(Path("badlang.pid")))
       .compile
