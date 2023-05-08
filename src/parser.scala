@@ -46,6 +46,12 @@ enum Value {
     value: Long
   )
 
+  def renderString: String =
+    this match {
+      case Num(value) => value.toString
+      case Str(value) => value
+    }
+
 }
 
 case class SourceFile[F[_]](

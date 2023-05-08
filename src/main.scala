@@ -10,6 +10,7 @@
 //> using option "-Wunused:all"
 package badlang
 
+import cats.CommutativeFlatMap.ops
 import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.kernel.Resource
@@ -26,6 +27,7 @@ import langoustine.lsp.aliases.DocumentDiagnosticReport
 import langoustine.lsp.aliases.TextDocumentContentChangeEvent
 import langoustine.lsp.app.LangoustineApp
 import langoustine.lsp.enumerations.DiagnosticSeverity
+import langoustine.lsp.enumerations.InlayHintKind
 import langoustine.lsp.enumerations.MessageType
 import langoustine.lsp.enumerations.TextDocumentSyncKind
 import langoustine.lsp.requests.initialize
@@ -37,6 +39,7 @@ import langoustine.lsp.runtime.Opt
 import langoustine.lsp.structures.Diagnostic
 import langoustine.lsp.structures.DiagnosticOptions
 import langoustine.lsp.structures.InitializeResult
+import langoustine.lsp.structures.InlayHint
 import langoustine.lsp.structures.Location
 import langoustine.lsp.structures.Position
 import langoustine.lsp.structures.RelatedFullDocumentDiagnosticReport
@@ -74,6 +77,7 @@ object Server {
               definitionProvider = Opt(true),
               referencesProvider = Opt(true),
               renameProvider = Opt(true),
+              inlayHintProvider = Opt(true),
             )
           )
         )
@@ -166,6 +170,61 @@ object Server {
           }
           .map { sym =>
             Definition(Location(in.params.textDocument.uri, sym.range.toLSP))
+          }
+          .value
+          .map(_.toOpt)
+      }
+      .handleRequest(textDocument.inlayHint) { in =>
+
+        import parser.*
+        docs
+          .getParsed(in.params.textDocument.uri)
+          .nested
+          .map { file =>
+
+            val prints =
+              file
+                .ops
+                .value
+                .foldLeft(
+                  Map.empty[Name, Value],
+                  Vector.empty[
+                    (
+                      T[Op.Show[T]],
+                      String,
+                    )
+                  ],
+                ) { case ((state, log), op) =>
+                  op.value match {
+                    case Op.Let(name, v) => (state + (name.value -> v.value), log)
+                    case Op.Inc(name) =>
+                      val v = state.getOrElse(name.value, Value.Num(0)).asInstanceOf[Value.Num]
+                      (state + (name.value -> Value.Num(v.value + 1)), log)
+                    case s @ Op.Show(names) =>
+                      (
+                        state,
+                        log.appended(
+                          op.copy(value = s) -> names
+                            .value
+                            .map(n => state(n.value).renderString)
+                            .mkString_("")
+                        ),
+                      )
+                  }
+                }
+                ._2
+
+            prints.map {
+              (
+                node,
+                result,
+              ) =>
+                InlayHint(
+                  position = node.range.end.toLSP,
+                  label = " // " + result,
+                  paddingLeft = Opt(true),
+                )
+            }
           }
           .value
           .map(_.toOpt)
