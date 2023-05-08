@@ -7,10 +7,10 @@
 //> using lib "io.circe::circe-generic:0.14.5"
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
 //> using lib "org.typelevel::cats-parse::0.3.9"
-//> using option "-Wunused:all"
+//> using lib "org.typelevel::cats-mtl::1.3.1"
+//> using options "-Wunused:all", "-Ykind-projector:underscores"
 package badlang
 
-import cats.CommutativeFlatMap.ops
 import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.kernel.Resource
@@ -177,9 +177,11 @@ object Server {
       .handleRequest(textDocument.inlayHint) { in =>
 
         import parser.*
-        docs
-          .getParsed(in.params.textDocument.uri)
-          .nested
+        OptionT(
+          docs
+            .getParsed(in.params.textDocument.uri)
+        )
+          .subflatMap(v => v.validate.as(v).toOption)
           .map { file =>
 
             val prints =
@@ -239,7 +241,20 @@ object Server {
 
           val items =
             parser.parse(fileText) match {
-              case Right(_) => Vector.empty
+              case Right(parsed) =>
+                parsed.validate match {
+                  case Right(_) => Vector.empty
+                  case Left(diagnostics) =>
+                    diagnostics.toList.toVector.map { diag =>
+                      Diagnostic(
+                        range = diag.range.toLSP,
+                        severity = Opt(diag.level match {
+                          case badlang.DiagnosticLevel.Error => DiagnosticSeverity.Error
+                        }),
+                        message = diag.issue.message,
+                      )
+                    }
+                }
               case Left((msg, offset)) =>
                 Vector(
                   Diagnostic(
