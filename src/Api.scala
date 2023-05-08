@@ -2,7 +2,7 @@ package badlang
 
 import cats.effect.IO
 import cats.effect.kernel.Resource
-import cats.implicits._
+import cats.implicits.*
 import io.circe.Encoder
 import io.circe.KeyEncoder
 import langoustine.lsp.runtime.DocumentUri
@@ -17,9 +17,9 @@ object Api {
     cache: DocumentCache[DocumentUri],
     docs: TextDocuments,
   ): Resource[IO, org.http4s.server.Server] = {
-    import org.http4s.dsl.io._
-    import org.http4s.circe.CirceEntityCodec._
-    import io.circe.generic.auto._
+    import org.http4s.dsl.io.*
+    import org.http4s.circe.CirceEntityCodec.*
+    import io.circe.generic.auto.*
 
     given KeyEncoder[DocumentUri] = KeyEncoder[String].contramap(_.value)
 

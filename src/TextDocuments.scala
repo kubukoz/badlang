@@ -2,7 +2,7 @@ package badlang
 
 import cats.data.OptionT
 import cats.effect.IO
-import cats.effect.implicits._
+import cats.effect.implicits.*
 import fs2.io.file.Files
 import fs2.io.file.Path
 import langoustine.lsp.runtime.DocumentUri

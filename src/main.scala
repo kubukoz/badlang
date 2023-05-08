@@ -14,7 +14,7 @@ package badlang
 import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.kernel.Resource
-import cats.implicits._
+import cats.implicits.*
 import cats.parse.Caret
 import cats.parse.LocationMap
 import fs2.io.file.Files
@@ -111,6 +111,7 @@ object Server {
           )
       )
       .handleRequest(textDocument.rename) { in =>
+        import analysis.*
         import parser.*
         OptionT(docs.getParsed(in.params.textDocument.uri))
           .subflatMap { file =>
@@ -144,7 +145,8 @@ object Server {
           .nested
           .map { file =>
 
-            import parser.toModel
+            import analysis.*
+            import parser.*
 
             file
               .findDefinitionAt(in.params.position.toModel)
@@ -162,7 +164,8 @@ object Server {
       .handleRequest(textDocument.definition) { in =>
         OptionT(docs.getParsed(in.params.textDocument.uri))
           .subflatMap { file =>
-            import parser.toModel
+            import analysis.*
+            import parser.*
 
             file
               .findReferenceAt(in.params.position.toModel)
@@ -176,6 +179,7 @@ object Server {
       }
       .handleRequest(textDocument.inlayHint) { in =>
 
+        import analysis.*
         import parser.*
         OptionT(docs.getParsed(in.params.textDocument.uri))
           .subflatMap(v => v.typecheck.as(v).toOption)
@@ -198,6 +202,9 @@ object Server {
           extension (
             c: Caret
           ) def toLSPPosition: Position = Position(c.line, c.col)
+
+          import analysis.*
+          import parser.*
 
           val items =
             parser.parse(fileText) match {
