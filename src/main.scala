@@ -177,55 +177,15 @@ object Server {
       .handleRequest(textDocument.inlayHint) { in =>
 
         import parser.*
-        OptionT(
-          docs
-            .getParsed(in.params.textDocument.uri)
-        )
+        OptionT(docs.getParsed(in.params.textDocument.uri))
           .subflatMap(v => v.typecheck.as(v).toOption)
           .map { file =>
-
-            val prints =
-              file
-                .ops
-                .value
-                .foldLeft(
-                  Map.empty[Name, Value],
-                  Vector.empty[
-                    (
-                      T[Op.Show[T]],
-                      String,
-                    )
-                  ],
-                ) { case ((state, log), op) =>
-                  op.value match {
-                    case Op.Let(name, v) => (state + (name.value -> v.value), log)
-                    case Op.Inc(name) =>
-                      val v = state.getOrElse(name.value, Value.Num(0)).asInstanceOf[Value.Num]
-                      (state + (name.value -> Value.Num(v.value + 1)), log)
-                    case s @ Op.Show(names) =>
-                      (
-                        state,
-                        log.appended(
-                          op.copy(value = s) -> names
-                            .value
-                            .map(n => state(n.value).renderString)
-                            .mkString_("")
-                        ),
-                      )
-                  }
-                }
-                ._2
-
-            prints.map {
-              (
-                node,
-                result,
-              ) =>
-                InlayHint(
-                  position = node.range.end.toLSP,
-                  label = " // " + result,
-                  paddingLeft = Opt(true),
-                )
+            file.execute.toVector.map { line =>
+              InlayHint(
+                position = line.opRange.end.toLSP,
+                label = " // " + line.text,
+                paddingLeft = Opt(true),
+              )
             }
           }
           .value

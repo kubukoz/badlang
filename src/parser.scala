@@ -113,6 +113,16 @@ enum Type {
 
 object parser {
 
+  case class OutputLine(
+    opRange: Range,
+    text: String,
+  )
+
+  case class InterpreterState(
+    output: List[OutputLine],
+    names: Map[Name, Value],
+  )
+
   case class TyperState(
     names: Map[T[Name], Type]
   )
@@ -203,6 +213,37 @@ object parser {
         .runA(TyperState(Map.empty))
         .value
     }
+
+    def execute: List[OutputLine] =
+      sf.ops
+        .value
+        .foldLeft(InterpreterState(Nil, Map.empty)) {
+          (
+            state,
+            op,
+          ) =>
+            op.value match {
+              case Op.Let(name, v) => state.copy(names = state.names + (name.value -> v.value))
+              case Op.Inc(name) =>
+                val v = state.names.getOrElse(name.value, Value.Num(0)).asInstanceOf[Value.Num]
+                state.copy(names = state.names + (name.value -> Value.Num(v.value + 1)))
+              case Op.Show(names) =>
+                state.copy(
+                  output = state
+                    .output
+                    .appended(
+                      OutputLine(
+                        opRange = op.range,
+                        text = names
+                          .value
+                          .map(n => state.names(n.value).renderString)
+                          .mkString_(""),
+                      )
+                    )
+                )
+            }
+        }
+        .output
 
     def names: List[T[Name]] = sf.ops.value.flatMap {
       _.value
