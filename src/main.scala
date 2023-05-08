@@ -29,6 +29,7 @@ import langoustine.lsp.app.LangoustineApp
 import langoustine.lsp.enumerations.DiagnosticSeverity
 import langoustine.lsp.enumerations.InlayHintKind
 import langoustine.lsp.enumerations.MessageType
+import langoustine.lsp.enumerations.SymbolKind
 import langoustine.lsp.enumerations.TextDocumentSyncKind
 import langoustine.lsp.requests.initialize
 import langoustine.lsp.requests.initialized
@@ -38,6 +39,7 @@ import langoustine.lsp.runtime.DocumentUri
 import langoustine.lsp.runtime.Opt
 import langoustine.lsp.structures.Diagnostic
 import langoustine.lsp.structures.DiagnosticOptions
+import langoustine.lsp.structures.DocumentSymbol
 import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.InlayHint
 import langoustine.lsp.structures.Location
@@ -78,6 +80,7 @@ object Server {
               referencesProvider = Opt(true),
               renameProvider = Opt(true),
               inlayHintProvider = Opt(true),
+              documentSymbolProvider = Opt(true),
             )
           )
         )
@@ -194,6 +197,32 @@ object Server {
           }
           .value
           .map(_.toOpt)
+      }
+      .handleRequest(textDocument.documentSymbol) { in =>
+        docs
+          .getParsed(in.params.textDocument.uri)
+          .nested
+          .map { file =>
+            import parser.*
+
+            file
+              .ops
+              .value
+              .mapFilter { op =>
+                op.value match {
+                  case Op.Let(name, value) =>
+                    DocumentSymbol(
+                      name = name.value.value,
+                      kind = SymbolKind.Variable,
+                      range = op.range.toLSP,
+                      selectionRange = name.range.toLSP,
+                    ).some
+                  case _ => None
+                }
+              }
+          }
+          .value
+          .map(_.map(_.toVector).toOpt)
       }
       .handleRequest(textDocument.diagnostic) { in =>
         docs.get(in.params.textDocument.uri).map(_.content).map { fileText =>
