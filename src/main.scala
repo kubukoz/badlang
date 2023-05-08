@@ -235,30 +235,35 @@ object Server {
           import analysis.*
           import parser.*
 
+          def withParsed(
+            parsed: SourceFile[parser.T]
+          ) = {
+            val lints = parsed.lint.fold(_.toList, _ => Nil)
+
+            parsed
+              .typecheck
+              .match {
+                case Right(_)     => Vector.empty
+                case Left(errors) => errors.toList.toVector
+              }
+              .concat(lints)
+              .map { diag =>
+                Diagnostic(
+                  range = diag.range.toLSP,
+                  severity = Opt(diag.level match {
+                    case badlang.DiagnosticLevel.Error   => DiagnosticSeverity.Error
+                    case badlang.DiagnosticLevel.Warning => DiagnosticSeverity.Warning
+                  }),
+                  message = diag.issue.message,
+                )
+              }
+          }
           val items =
             parser.parse(fileText) match {
-              case Right(parsed) =>
-                val lints = parsed.lint.fold(_.toList, _ => Nil)
+              case Right(parsed) => withParsed(parsed)
 
-                parsed
-                  .typecheck
-                  .match {
-                    case Right(_)     => Vector.empty
-                    case Left(errors) => errors.toList.toVector
-                  }
-                  .concat(lints)
-                  .map { diag =>
-                    Diagnostic(
-                      range = diag.range.toLSP,
-                      severity = Opt(diag.level match {
-                        case badlang.DiagnosticLevel.Error   => DiagnosticSeverity.Error
-                        case badlang.DiagnosticLevel.Warning => DiagnosticSeverity.Warning
-                      }),
-                      message = diag.issue.message,
-                    )
-                  }
               case Left((msg, offset)) =>
-                Vector(
+                val parseError = Vector(
                   Diagnostic(
                     range = langoustine
                       .lsp
@@ -271,6 +276,18 @@ object Server {
                     message = "Parsing error: expected " + msg,
                   )
                 )
+
+                // minimal-effort attempt: parse all previous lines and get some diagnostics from that.
+                // technically we could try and parse each line separately anyway (and probably should), but this is a start.
+                val parsedEarlier = {
+                  val lineFailed = map.toCaretUnsafe(offset)
+                  val lineStart = map.toOffset(lineFailed.line, 0).getOrElse(sys.error("no offset"))
+                  parser.parse(fileText.take(lineStart))
+                }
+
+                val extraDiags = parsedEarlier.fold(_ => Nil, withParsed)
+
+                parseError ++ extraDiags
             }
 
           DocumentDiagnosticReport(
