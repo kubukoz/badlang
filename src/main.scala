@@ -238,19 +238,25 @@ object Server {
           val items =
             parser.parse(fileText) match {
               case Right(parsed) =>
-                parsed.typecheck match {
-                  case Right(_) => Vector.empty
-                  case Left(diagnostics) =>
-                    diagnostics.toList.toVector.map { diag =>
-                      Diagnostic(
-                        range = diag.range.toLSP,
-                        severity = Opt(diag.level match {
-                          case badlang.DiagnosticLevel.Error => DiagnosticSeverity.Error
-                        }),
-                        message = diag.issue.message,
-                      )
-                    }
-                }
+                val lints = parsed.lint.fold(_.toList, _ => Nil)
+
+                parsed
+                  .typecheck
+                  .match {
+                    case Right(_)     => Vector.empty
+                    case Left(errors) => errors.toList.toVector
+                  }
+                  .concat(lints)
+                  .map { diag =>
+                    Diagnostic(
+                      range = diag.range.toLSP,
+                      severity = Opt(diag.level match {
+                        case badlang.DiagnosticLevel.Error   => DiagnosticSeverity.Error
+                        case badlang.DiagnosticLevel.Warning => DiagnosticSeverity.Warning
+                      }),
+                      message = diag.issue.message,
+                    )
+                  }
               case Left((msg, offset)) =>
                 Vector(
                   Diagnostic(

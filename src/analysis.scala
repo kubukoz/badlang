@@ -14,13 +14,21 @@ case class Diagnostic(
   issue: ValidationIssue,
   range: parser.Range,
   level: DiagnosticLevel,
+  tags: Set[DiagnosticTag] = Set.empty,
 )
 
 enum DiagnosticLevel {
   case Error
+  case Warning
+}
+
+enum DiagnosticTag {
+  case Unnecessary
 }
 
 enum ValidationIssue {
+
+  case UnusedVariable
 
   case TypeMismatch(
     expected: Type,
@@ -32,6 +40,7 @@ enum ValidationIssue {
 
   def message: String =
     this match {
+      case UnusedVariable      => "Unused variable."
       case DuplicateDefinition => "This symbol has already been defined."
       case SymbolUnknown       => "Unknown symbol."
       case TypeMismatch(expected, actual) =>
@@ -59,6 +68,48 @@ object analysis {
   extension (
     sf: SourceFile[T]
   )
+
+    def lint: EitherNel[Diagnostic, Unit] = {
+
+      // find unused variables
+      // very crude implementation, but it'll work for now
+      val ops = sf.ops.value
+
+      def isUsed(
+        name: Name
+      ): Boolean = ops
+        .mapFilter {
+          _.value.match {
+            case Op.Show(names) => names.value.some
+            case _              => none
+          }
+        }
+        .flatMap(_.toList)
+        .exists(_.value == name)
+
+      // go through each op
+      // if it's not a show, check if there's a show using the given name afterwards
+      // if not, keep that and return a warning
+      val unusedVariables = sf.ops.value.parTraverse_ { op =>
+        def report(
+          name: T[?]
+        ) =
+          Diagnostic(
+            ValidationIssue.UnusedVariable,
+            name.range,
+            DiagnosticLevel.Warning,
+            tags = Set(DiagnosticTag.Unnecessary),
+          ).leftNel
+
+        op.value match {
+          case Op.Let(name, _) if !isUsed(name.value) => report(name)
+          case Op.Inc(name) if !isUsed(name.value)    => report(name)
+          case _                                      => Right(())
+        }
+      }
+
+      unusedVariables
+    }
 
     def typecheck: EitherNel[Diagnostic, Unit] = {
       type Stateful[F[_]] = cats.mtl.Stateful[F, TyperState]
