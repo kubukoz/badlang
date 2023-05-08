@@ -121,7 +121,7 @@ object parser {
     sf: SourceFile[T]
   )
 
-    def validate: EitherNel[Diagnostic, Unit] = {
+    def typecheck: EitherNel[Diagnostic, Unit] = {
       type Stateful[F[_]] = cats.mtl.Stateful[F, TyperState]
       type Raise[F[_]] = cats.mtl.Raise[F, NEL[Diagnostic]]
 

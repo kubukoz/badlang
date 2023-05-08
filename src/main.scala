@@ -181,7 +181,7 @@ object Server {
           docs
             .getParsed(in.params.textDocument.uri)
         )
-          .subflatMap(v => v.validate.as(v).toOption)
+          .subflatMap(v => v.typecheck.as(v).toOption)
           .map { file =>
 
             val prints =
@@ -242,7 +242,7 @@ object Server {
           val items =
             parser.parse(fileText) match {
               case Right(parsed) =>
-                parsed.validate match {
+                parsed.typecheck match {
                   case Right(_) => Vector.empty
                   case Left(diagnostics) =>
                     diagnostics.toList.toVector.map { diag =>
