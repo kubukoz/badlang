@@ -1,4 +1,4 @@
-//> using scala "3.3.0"
+//> using scala "3.3.1-RC1"
 //> using lib "tech.neander::langoustine-app::0.0.20"
 //> using lib "org.http4s::http4s-ember-server::0.23.19-RC3"
 //> using lib "org.http4s::http4s-circe::0.23.19-RC3"
@@ -8,7 +8,7 @@
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
 //> using lib "org.typelevel::cats-parse::0.3.9"
 //> using lib "org.typelevel::cats-mtl::1.3.1"
-//> using options "-Wunused:all", "-Ykind-projector:underscores"
+//> using options "-Wunused:all", "-Ykind-projector:underscores", "-Wnonunit-statement", "-Wvalue-discard"
 package badlang
 
 import cats.data.OptionT
