@@ -1,4 +1,4 @@
-//> using scala "3.3.0-RC5"
+//> using scala "3.3.0"
 //> using lib "tech.neander::langoustine-app::0.0.20"
 //> using lib "org.http4s::http4s-ember-server::0.23.19-RC3"
 //> using lib "org.http4s::http4s-circe::0.23.19-RC3"
