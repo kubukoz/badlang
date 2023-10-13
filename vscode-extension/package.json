@@ -51,8 +51,8 @@
     "@types/node": "^18.6.2",
     "@types/vscode": "^1.69.0",
     "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.10.0",
     "mocha": "^10.1.0",
-    "typescript": "^4.7.4",
-    "vsce": "^2.10.0"
+    "typescript": "^4.7.4"
   }
 }
