@@ -1,12 +1,10 @@
-//> using scala "3.3.1-RC1"
-//> using lib "tech.neander::langoustine-app::0.0.20"
-//> using lib "org.http4s::http4s-ember-server::0.23.19-RC3"
-//> using lib "org.http4s::http4s-circe::0.23.19-RC3"
-//> using lib "org.http4s::http4s-dsl::0.23.19-RC3"
-//> using lib "co.fs2::fs2-io::3.7.0-RC5"
-//> using lib "io.circe::circe-generic:0.14.5"
+//> using scala "3.3.1"
+//> using lib "tech.neander::langoustine-app::0.0.21"
+//> using lib "co.fs2::fs2-io::3.9.2"
+//> using lib "io.lemonlabs::scala-uri:4.0.3"
+//> using lib "io.circe::circe-generic:0.14.6"
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
-//> using lib "org.typelevel::cats-parse::0.3.9"
+//> using lib "org.typelevel::cats-parse::0.3.10"
 //> using lib "org.typelevel::cats-mtl::1.3.1"
 //> using options "-Wunused:all", "-Ykind-projector:underscores", "-Wnonunit-statement", "-Wvalue-discard"
 package badlang
@@ -352,12 +350,9 @@ object main extends CrossPlatformIOApp with LangoustineApp {
     killEmAll.toResource *> DocumentCache
       .make[DocumentUri]
       .toResource
-      .flatMap { cache =>
+      .map { cache =>
         val docs = TextDocuments.cached(cache)
-
-        Api
-          .run(cache, docs)
-          .as(Server.make(cache, docs))
+        Server.make(cache, docs)
       }
 
 }
