@@ -179,10 +179,10 @@ object analysis {
           state.copy(names = state.names + (name -> tpe))
         }
 
-        sf.ops.value.traverse_ { op =>
+        sf.ops.value.parTraverse_ { op =>
           op.value.match {
             case Op.Inc(name)        => ensureKnownNum(name)
-            case Op.Let(name, value) => ensureUnknown(name) *> setType(name, value.value.tpe)
+            case Op.Let(name, value) => ensureUnknown(name) &> setType(name, value.value.tpe)
             case Op.Show(names)      => names.value.parTraverse_(ensureKnown)
           }
         }
