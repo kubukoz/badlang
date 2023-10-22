@@ -6,3 +6,4 @@
 .sbt
 .version
 badlang-lsp
+badlang-pid
