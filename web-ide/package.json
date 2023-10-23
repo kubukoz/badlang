@@ -1,0 +1,41 @@
+{
+  "name": "web-ide",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "sass": "^1.69.4",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5"
+  },
+  "dependencies": {
+    "@codingame/monaco-vscode-editor-service-override": "~1.83.3",
+    "@codingame/monaco-vscode-keybindings-service-override": "~1.83.3",
+    "@codingame/monaco-vscode-configuration-service-override": "~1.83.3",
+    "@codingame/monaco-vscode-languages-service-override": "~1.83.3",
+    "@codingame/monaco-vscode-model-service-override": "~1.83.3",
+    "monaco-editor": "~0.44.0",
+    "monaco-editor-workers": "~0.44.0",
+    "monaco-languageclient": "~6.6.1",
+    "vscode": "npm:@codingame/monaco-vscode-api@>=1.83.2 <1.84.0",
+    "vscode-uri": "~3.0.8",
+    "vscode-ws-jsonrpc": "~3.0.0"
+  },
+  "peerDependencies": {
+    "monaco-editor": "~0.44.0",
+    "vscode": "npm:@codingame/monaco-vscode-api@>=1.83.2 <1.84.0"
+  },
+  "peerDependenciesMeta": {
+    "monaco-editor": {
+      "optional": false
+    },
+    "vscode": {
+      "optional": false
+    }
+  }
+}

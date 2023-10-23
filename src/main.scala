@@ -21,6 +21,8 @@ import fs2.io.file.Files
 import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
+import langoustine.lsp.Communicate
+import langoustine.lsp.Invocation
 import langoustine.lsp.LSPBuilder
 import langoustine.lsp.aliases.Definition
 import langoustine.lsp.aliases.DocumentDiagnosticReport
@@ -31,6 +33,8 @@ import langoustine.lsp.enumerations.InlayHintKind
 import langoustine.lsp.enumerations.MessageType
 import langoustine.lsp.enumerations.SymbolKind
 import langoustine.lsp.enumerations.TextDocumentSyncKind
+import langoustine.lsp.requests.LSPNotification
+import langoustine.lsp.requests.LSPRequest
 import langoustine.lsp.requests.initialize
 import langoustine.lsp.requests.initialized
 import langoustine.lsp.requests.textDocument
@@ -317,47 +321,54 @@ object Server {
 
 object main extends CrossPlatformIOApp with LangoustineApp {
 
-  // Workaround for vscode not killing the process in time
-  val killEmAll = {
-    val killOthers = Files[IO]
-      .readUtf8(Path("badlang.pid"))
-      .compile
-      .string
-      .map(_.trim.toLong)
-      .attemptNarrow[NoSuchFileException]
-      .flatMap {
-        _.traverse_ { pid =>
-          fs2
-            .io
-            .process
-            .ProcessBuilder("kill", pid.toString)
-            .spawn[IO]
-            .use(_.exitValue)
-            .void
-        }
-      }
+  private def withLogging(
+    b: LSPBuilder[IO]
+  ): LSPBuilder[IO] =
+    new LSPBuilder[IO] {
+      export b.{handleNotification => _, handleRequest => _, *}
 
-    killOthers *> fs2
-      .Stream
-      .emit(getpid().toString)
-      .through(fs2.text.utf8.encode[IO])
-      .through(Files[IO].writeAll(Path("badlang.pid")))
-      .compile
-      .drain
-  }
+      override def handleRequest[X <: LSPRequest](
+        t: X
+      )(
+        f: Invocation[t.In, IO] => IO[t.Out]
+      ): LSPBuilder[IO] =
+        b.handleRequest(t) { inv =>
+          IO.consoleForIO
+            .println("handling " + t.requestMethod) *>
+            f(inv).onError { case e =>
+              IO.consoleForIO
+                .printStackTrace(new Throwable("failed invocation of " + t.requestMethod, e))
+            } <* IO.consoleForIO.errorln("handled " + t.requestMethod)
+        }
+
+      override def handleNotification[X <: LSPNotification](
+        t: X
+      )(
+        f: Invocation[t.In, IO] => IO[Unit]
+      ): LSPBuilder[IO] =
+        b.handleNotification(t) { inv =>
+          IO.consoleForIO
+            .println("handling " + t.notificationMethod) *>
+            f(inv).onError { case e =>
+              IO.consoleForIO
+                .printStackTrace(new Throwable("failed invocation of " + t.notificationMethod, e))
+            } <* IO.consoleForIO.errorln("handled " + t.notificationMethod)
+        }
+
+    }
 
   override def server(
     args: List[String]
-  ): Resource[IO, LSPBuilder[IO]] =
-    killEmAll.toResource *> DocumentCache
-      .make[DocumentUri]
-      .toResource
-      .flatMap { cache =>
-        val docs = TextDocuments.cached(cache)
+  ): Resource[IO, LSPBuilder[IO]] = DocumentCache
+    .make[DocumentUri]
+    .toResource
+    .map { cache =>
+      val docs = TextDocuments.cached(cache)
 
-        Api
-          .run(cache, docs)
-          .as(Server.make(cache, docs))
-      }
+      // Api
+      //   .run(cache, docs)
+      withLogging(Server.make(cache, docs))
+      // .map(withLogging(_))
+    }
 
 }
