@@ -376,8 +376,10 @@ object main extends CrossPlatformIOApp with LangoustineApp {
 
       // Api
       //   .run(cache, docs)
+      // removing this `[IO]` slows compilation down by a lot ;)
+      // https://github.com/lampepfl/dotty/issues/18763
       Resource
-        .unit
+        .unit[IO]
         .as {
           Server.make(cache, docs)
         }
