@@ -1,28 +1,31 @@
-import { initServices, MonacoLanguageClient } from "monaco-languageclient";
+import getConfigurationServiceOverride from "@codingame/monaco-vscode-configuration-service-override";
+import getEditorServiceOverride, {
+  OpenEditor,
+} from "@codingame/monaco-vscode-editor-service-override";
+import getKeybindingsServiceOverride from "@codingame/monaco-vscode-keybindings-service-override";
+import { languages } from "monaco-editor";
+import { MonacoLanguageClient, initServices } from "monaco-languageclient";
+import { CloseAction, ErrorAction } from "vscode-languageclient";
 import { URI } from "vscode-uri";
 import {
-  toSocket,
   WebSocketMessageReader,
   WebSocketMessageWriter,
+  toSocket,
 } from "vscode-ws-jsonrpc";
 import { createConfiguredEditor, createModelReference } from "vscode/monaco";
 import "./main.scss";
 
-import getConfigurationServiceOverride from "@codingame/monaco-vscode-configuration-service-override";
-import getKeybindingsServiceOverride from "@codingame/monaco-vscode-keybindings-service-override";
-import { CloseAction, ErrorAction } from "vscode-languageclient";
-
-import { languages } from "monaco-editor";
+const ed: OpenEditor = async (modelRef, options, sideBySide) => {
+  console.log("trying to open", modelRef, options, sideBySide);
+  return Promise.resolve(undefined) as Promise<undefined>;
+};
 
 const performInit = async () => {
   await initServices({
     userServices: {
-      // ...getThemeServiceOverride(),
-      // ...getTextmateServiceOverride(),
-      ...getConfigurationServiceOverride(
-        URI.file("/Users/kubukoz/projects/badlang-demo")
-      ),
+      ...getConfigurationServiceOverride(URI.file("/workspace")),
       ...getKeybindingsServiceOverride(),
+      ...getEditorServiceOverride(ed),
     },
     debugLogging: true,
   });
@@ -37,12 +40,14 @@ const performInit = async () => {
 const start = async () => {
   await performInit();
 
-  const uri = URI.parse("/Users/kubukoz/projects/badlang-demo/demo.bad");
+  const uri = URI.parse("/workspace/demo.bad");
 
   const text = `LET x 40
 LET y 10
+LET z 50
 
 SHOW x y
+SHOW z
 `;
 
   const modelRef = await createModelReference(uri, text);

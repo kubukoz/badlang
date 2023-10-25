@@ -27,13 +27,13 @@ object TextDocuments {
         uri: DocumentUri
       ): IO[Document] = OptionT(cache.get(uri))
         .map(Document(_, true))
-        .getOrElseF(
+        .getOrElseF {
           Files[IO]
             .readUtf8(Path(Uri.fromString(uri.value).toTry.get.path.renderString))
             .compile
             .string
             .map(Document(_, false))
-        )
+        }
 
     }
 

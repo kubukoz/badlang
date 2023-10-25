@@ -8,6 +8,7 @@
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
 //> using lib "org.typelevel::cats-parse::0.3.10"
 //> using lib "org.typelevel::cats-mtl::1.3.1"
+//> using lib "com.lihaoyi::pprint:0.8.1"
 //> using options "-Wunused:all", "-Ykind-projector:underscores", "-Wnonunit-statement", "-Wvalue-discard"
 package badlang
 
@@ -67,6 +68,7 @@ object Server {
     cache: DocumentCache[DocumentUri],
     docs: TextDocuments,
   ): LSPBuilder[IO] =
+    /* logged */
     LSPBuilder
       .create[IO]
       .handleRequest(initialize) { in =>
@@ -104,10 +106,10 @@ object Server {
             }
             .traverse_(cache.set(in.textDocument.uri, _))
       }
-      .handleNotification(textDocument.didClose) { in =>
-        cache.remove(in.params.textDocument.uri)
+      .handleNotification(textDocument.didOpen) { in =>
+        cache.set(in.params.textDocument.uri, in.params.textDocument.text)
       }
-      .handleNotification(textDocument.didSave) { in =>
+      .handleNotification(textDocument.didClose) { in =>
         cache.remove(in.params.textDocument.uri)
       }
       .handleNotification(initialized)(
@@ -303,6 +305,53 @@ object Server {
         }
       }
 
+  private def logged(
+    b: LSPBuilder[IO]
+  ): LSPBuilder[IO] =
+    new LSPBuilder[IO] {
+      export b.{handleNotification => _, handleRequest => _, *}
+
+      override def handleRequest[X <: LSPRequest](
+        t: X
+      )(
+        f: Invocation[t.In, IO] => IO[t.Out]
+      ): LSPBuilder[IO] = logged {
+        b.handleRequest(t) { inv =>
+          IO.consoleForIO
+            .errorln("handling " + t.requestMethod + " with input: " + pprint(inv.params)) *>
+            f(inv)
+              .onError { case e =>
+                IO.consoleForIO
+                  .printStackTrace(new Throwable("failed invocation of " + t.requestMethod, e))
+              }
+              .flatTap { out =>
+                IO.consoleForIO.errorln("handled " + t.requestMethod + s": ${pprint(out)}")
+              }
+        }
+      }
+
+      override def handleNotification[X <: LSPNotification](
+        t: X
+      )(
+        f: Invocation[t.In, IO] => IO[Unit]
+      ): LSPBuilder[IO] = logged {
+        b.handleNotification(t) { inv =>
+          IO.consoleForIO
+            .println("handling " + t.notificationMethod + " with input: " + pprint(inv.params)) *>
+            f(inv)
+              .onError { case e =>
+                IO.consoleForIO
+                  .printStackTrace(new Throwable("failed invocation of " + t.notificationMethod, e))
+              }
+              .flatTap { out =>
+                IO.consoleForIO
+                  .println("handled " + t.notificationMethod + s": ${pprint(out)}")
+              }
+        }
+      }
+
+    }
+
   import parser.T
 
   extension (
@@ -321,54 +370,21 @@ object Server {
 
 object main extends CrossPlatformIOApp with LangoustineApp {
 
-  private def withLogging(
-    b: LSPBuilder[IO]
-  ): LSPBuilder[IO] =
-    new LSPBuilder[IO] {
-      export b.{handleNotification => _, handleRequest => _, *}
-
-      override def handleRequest[X <: LSPRequest](
-        t: X
-      )(
-        f: Invocation[t.In, IO] => IO[t.Out]
-      ): LSPBuilder[IO] =
-        b.handleRequest(t) { inv =>
-          IO.consoleForIO
-            .println("handling " + t.requestMethod) *>
-            f(inv).onError { case e =>
-              IO.consoleForIO
-                .printStackTrace(new Throwable("failed invocation of " + t.requestMethod, e))
-            } <* IO.consoleForIO.errorln("handled " + t.requestMethod)
-        }
-
-      override def handleNotification[X <: LSPNotification](
-        t: X
-      )(
-        f: Invocation[t.In, IO] => IO[Unit]
-      ): LSPBuilder[IO] =
-        b.handleNotification(t) { inv =>
-          IO.consoleForIO
-            .println("handling " + t.notificationMethod) *>
-            f(inv).onError { case e =>
-              IO.consoleForIO
-                .printStackTrace(new Throwable("failed invocation of " + t.notificationMethod, e))
-            } <* IO.consoleForIO.errorln("handled " + t.notificationMethod)
-        }
-
-    }
-
   override def server(
     args: List[String]
   ): Resource[IO, LSPBuilder[IO]] = DocumentCache
     .make[DocumentUri]
     .toResource
-    .map { cache =>
+    .flatMap { cache =>
       val docs = TextDocuments.cached(cache)
 
       // Api
       //   .run(cache, docs)
-      withLogging(Server.make(cache, docs))
-      // .map(withLogging(_))
+      Resource
+        .unit
+        .as {
+          Server.make(cache, docs)
+        }
     }
 
 }

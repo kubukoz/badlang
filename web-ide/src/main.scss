@@ -1,4 +1,20 @@
-#editor {
-	width: 100vw;
+body {
+	margin: 0;
+}
+
+#app {
+	display: flex;
+	flex-direction: column;
 	height: 100vh;
+}
+
+h1 {
+	padding: 20px;
+	font-family: "Helvetica";
+	font-weight: normal;
+}
+
+#editor {
+	flex: 1;
+	background: red;
 }

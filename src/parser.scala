@@ -106,7 +106,7 @@ object parser {
     .with1
     .surroundedBy(P.char('"'))
 
-  val long = (Numbers.nonZeroDigit *> Numbers.digit).string.mapFilter(_.toLongOption)
+  val long = (Numbers.nonZeroDigit *> Numbers.digits).string.mapFilter(_.toLongOption)
 
   val value = stringLiteral.map(Value.Str(_)) | long.map(Value.Num(_))
 
