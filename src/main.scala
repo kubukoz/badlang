@@ -18,8 +18,6 @@ import cats.effect.kernel.Resource
 import cats.implicits.*
 import cats.parse.Caret
 import cats.parse.LocationMap
-import fs2.io.file.Files
-import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.Communicate
@@ -54,8 +52,6 @@ import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
 import langoustine.lsp.structures.TextEdit
 import langoustine.lsp.structures.WorkspaceEdit
-
-import java.nio.file.NoSuchFileException
 
 case class Document(
   content: String,
