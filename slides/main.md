@@ -175,6 +175,20 @@ This is [LSP](https://microsoft.github.io/language-server-protocol/)!
 
 ---
 
+## Go to definition
+
+`textDocument/definition`: (URI, position) => (URI, range)
+
+What we need to do:
+
+1. Load and parse the file at `uri`
+2. Find out what node in the tree the cursor (`position`) is at
+3. Ensure that node is a reference
+4. Find the first appearance of the referenced variable
+5. Return the variable's range
+
+---
+
 # Thank you
 
 Slides/code: will be posted on the event
