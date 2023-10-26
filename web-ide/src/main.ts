@@ -12,25 +12,27 @@ import {
 import { createConfiguredEditor, createModelReference } from "vscode/monaco";
 import "./main.scss";
 
-let allData = {
-  badlang: {
-    language: {
-      id: "badlang",
-      extensions: [".bad"],
-      aliases: ["Badlang", "badlang"],
-      mimetypes: ["text/badlang"],
-    },
-    input: `LET x 40
+const badlang = {
+  language: {
+    id: "badlang",
+    extensions: [".bad"],
+    aliases: ["Badlang", "badlang"],
+    mimetypes: ["text/badlang"],
+  },
+  input: `LET x 40
 LET y 10
 LET z 50
 
 SHOW x y
 SHOW z
 `,
-    workspace: URI.file("/workspace"),
-    filename: "demo.bad",
-    url: "ws://localhost:30000",
-  },
+  workspace: URI.file("/workspace"),
+  filename: "demo.bad",
+  url: "ws://localhost:30000",
+};
+
+const allData = {
+  badlang,
   scala: {
     language: {
       id: "scala",
@@ -82,7 +84,7 @@ struct Foo {
 const langId = (new URLSearchParams(window.location.search).get("lang") ||
   "badlang") as keyof typeof allData;
 
-let data = allData[langId];
+const data = allData[langId];
 
 const performInit = async () => {
   await initServices({
