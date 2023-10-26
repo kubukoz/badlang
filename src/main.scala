@@ -31,8 +31,10 @@ import langoustine.lsp.runtime.Opt
 import langoustine.lsp.structures.DiagnosticOptions
 import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.Location
+import langoustine.lsp.structures.MessageActionItem
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
+import langoustine.lsp.structures.ShowMessageRequestParams
 import parser.*
 
 case class Document(
