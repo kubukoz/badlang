@@ -31,11 +31,6 @@ import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
 import parser.*
 
-case class Document(
-  content: String,
-  cached: Boolean,
-)
-
 object Server {
 
   def make(

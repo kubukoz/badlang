@@ -38,3 +38,8 @@ object TextDocuments {
     }
 
 }
+
+case class Document(
+  content: String,
+  cached: Boolean,
+)
