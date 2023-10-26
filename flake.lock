@@ -33,10 +33,25 @@
         "type": "github"
       }
     },
+    "nixpkgs-2": {
+      "locked": {
+        "dirtyRev": "73745fdcefcd6be0c93f8b2e79a423be0087fe73-dirty",
+        "dirtyShortRev": "73745fdcefcd-dirty",
+        "lastModified": 1698278505,
+        "narHash": "sha256-LPo9LgTgYXvPUHYTOzBSOcPxULaLWZ/GxBFx6mkVnGA=",
+        "type": "git",
+        "url": "file:///Users/kubukoz/projects/nixpkgs"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///Users/kubukoz/projects/nixpkgs"
+      }
+    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "nixpkgs-2": "nixpkgs-2"
       }
     },
     "systems": {
