@@ -1,11 +1,12 @@
 //> using scala "3.3.1"
 //> using lib "tech.neander::langoustine-app::0.0.21"
 //> using lib "co.fs2::fs2-io::3.9.2"
-//> using lib "io.lemonlabs::scala-uri:4.0.3"
-//> using lib "io.circe::circe-generic:0.14.6"
+//> using lib "io.lemonlabs::scala-uri::4.0.3"
+//> using lib "io.circe::circe-generic::0.14.6"
 //> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
 //> using lib "org.typelevel::cats-parse::0.3.10"
-//> using lib "org.typelevel::cats-mtl::1.3.1"
+//> using lib "org.typelevel::cats-mtl::1.4.0"
+//> using lib "com.lihaoyi::pprint::0.8.1"
 //> using options "-Wunused:all", "-Ykind-projector:underscores", "-Wnonunit-statement", "-Wvalue-discard"
 package badlang
 
@@ -13,8 +14,6 @@ import analysis.*
 import cats.effect.IO
 import cats.effect.kernel.Resource
 import cats.implicits.*
-import fs2.io.file.Files
-import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
@@ -35,8 +34,6 @@ import langoustine.lsp.structures.Location
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
 import parser.*
-
-import java.nio.file.NoSuchFileException
 
 case class Document(
   content: String,
@@ -82,10 +79,10 @@ object Server {
             }
             .traverse_(cache.set(in.textDocument.uri, _))
       }
-      .handleNotification(textDocument.didClose) { in =>
-        cache.remove(in.params.textDocument.uri)
+      .handleNotification(textDocument.didOpen) { in =>
+        cache.set(in.params.textDocument.uri, in.params.textDocument.text)
       }
-      .handleNotification(textDocument.didSave) { in =>
+      .handleNotification(textDocument.didClose) { in =>
         cache.remove(in.params.textDocument.uri)
       }
       .handleNotification(initialized)(
@@ -120,44 +117,23 @@ object Server {
 
 object main extends CrossPlatformIOApp with LangoustineApp {
 
-  // Workaround for vscode not killing the process in time
-  val killEmAll = {
-    val killOthers = Files[IO]
-      .readUtf8(Path("badlang.pid"))
-      .compile
-      .string
-      .map(_.trim.toLong)
-      .attemptNarrow[NoSuchFileException]
-      .flatMap {
-        _.traverse_ { pid =>
-          fs2
-            .io
-            .process
-            .ProcessBuilder("kill", pid.toString)
-            .spawn[IO]
-            .use(_.exitValue)
-            .void
-        }
-      }
-
-    killOthers *> fs2
-      .Stream
-      .emit(getpid().toString)
-      .through(fs2.text.utf8.encode[IO])
-      .through(Files[IO].writeAll(Path("badlang.pid")))
-      .compile
-      .drain
-  }
-
   override def server(
     args: List[String]
-  ): Resource[IO, LSPBuilder[IO]] =
-    killEmAll.toResource *> DocumentCache
-      .make[DocumentUri]
-      .toResource
-      .map { cache =>
-        val docs = TextDocuments.cached(cache)
-        Server.make(cache, docs)
-      }
+  ): Resource[IO, LSPBuilder[IO]] = DocumentCache
+    .make[DocumentUri]
+    .toResource
+    .flatMap { cache =>
+      val docs = TextDocuments.cached(cache)
+
+      // Api
+      //   .run(cache, docs)
+      // removing this `[IO]` slows compilation down by a lot ;)
+      // https://github.com/lampepfl/dotty/issues/18763
+      Resource
+        .unit[IO]
+        .as {
+          Server.make(cache, docs)
+        }
+    }
 
 }
