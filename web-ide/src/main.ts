@@ -22,9 +22,11 @@ const badlang = {
   input: `LET x 40
 LET y 10
 LET z 50
+LET comma ", "
 
-SHOW x y
-SHOW z
+SHOW x comma y comma z
+INC x
+SHOW x
 `,
   workspace: URI.file("/workspace"),
   filename: "demo.bad",
