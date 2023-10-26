@@ -98,8 +98,6 @@ object Server {
       }
       .handleRequest(textDocument.diagnostic)(in => diagnostics(in.params, docs))
 
-  import parser.T
-
   extension [A](
     option: Option[A]
   ) def toOpt: Opt[A] = option.fold(Opt.empty)(Opt(_))
