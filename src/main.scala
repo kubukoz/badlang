@@ -2,11 +2,8 @@
 //> using lib "tech.neander::langoustine-app::0.0.21"
 //> using lib "co.fs2::fs2-io::3.9.2"
 //> using lib "io.lemonlabs::scala-uri::4.0.3"
-//> using lib "io.circe::circe-generic::0.14.6"
-//> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
 //> using lib "org.typelevel::cats-parse::0.3.10"
 //> using lib "org.typelevel::cats-mtl::1.4.0"
-//> using lib "com.lihaoyi::pprint::0.8.1"
 //> using options "-Wunused:all", "-Ykind-projector:underscores", "-Wnonunit-statement", "-Wvalue-discard"
 package badlang
 
@@ -14,7 +11,6 @@ import analysis.*
 import cats.effect.IO
 import cats.effect.kernel.Resource
 import cats.implicits.*
-import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
 import langoustine.lsp.aliases.Definition
@@ -115,7 +111,7 @@ object Server {
 
 }
 
-object main extends CrossPlatformIOApp with LangoustineApp {
+object main extends LangoustineApp {
 
   override def server(
     args: List[String]
