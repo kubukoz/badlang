@@ -122,18 +122,10 @@ object main extends CrossPlatformIOApp with LangoustineApp {
   ): Resource[IO, LSPBuilder[IO]] = DocumentCache
     .make[DocumentUri]
     .toResource
-    .flatMap { cache =>
+    .map { cache =>
       val docs = TextDocuments.cached(cache)
+      Server.make(cache, docs)
 
-      // Api
-      //   .run(cache, docs)
-      // removing this `[IO]` slows compilation down by a lot ;)
-      // https://github.com/lampepfl/dotty/issues/18763
-      Resource
-        .unit[IO]
-        .as {
-          Server.make(cache, docs)
-        }
     }
 
 }
