@@ -53,6 +53,30 @@ object Demo {
     filename: "demo.scala",
     url: "ws://localhost:30001",
   },
+  rust: {
+    language: {
+      id: "rust",
+      extensions: [".rs"],
+      aliases: ["Rust", "rust"],
+      mimetypes: ["text/rust"],
+    },
+    input: `fn main() {
+  let x = 40;
+  let y = 2.0;
+  let s = Foo { x, y };
+  dbg!(&s);
+}
+
+#[derive(Debug)]
+struct Foo {
+  x: i32,
+  y: i32,
+}
+`,
+    workspace: URI.file("/Users/kubukoz/projects/lsp-ws-proxy/rs-workspace"),
+    filename: "src/main.rs",
+    url: "ws://localhost:30002",
+  },
 };
 
 const langId = (new URLSearchParams(window.location.search).get("lang") ||
