@@ -1,5 +1,6 @@
 import getConfigurationServiceOverride from "@codingame/monaco-vscode-configuration-service-override";
 import getKeybindingsServiceOverride from "@codingame/monaco-vscode-keybindings-service-override";
+import getEditorServiceOverride from "@codingame/monaco-vscode-editor-service-override";
 import { languages } from "monaco-editor";
 import { MonacoLanguageClient, initServices } from "monaco-languageclient";
 import { CloseAction, ErrorAction } from "vscode-languageclient";
@@ -88,11 +89,13 @@ const langId = (new URLSearchParams(window.location.search).get("lang") ||
 
 const data = allData[langId];
 
+// todo: enable diagnostics
 const performInit = async () => {
   await initServices({
     userServices: {
       ...getConfigurationServiceOverride(data.workspace),
       ...getKeybindingsServiceOverride(),
+      ...getEditorServiceOverride(() => Promise.resolve(undefined)),
     },
     debugLogging: true,
   });

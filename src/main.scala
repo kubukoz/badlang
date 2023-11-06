@@ -1,9 +1,14 @@
 //> using scala "3.3.1"
 //> using lib "tech.neander::langoustine-app::0.0.21"
-//> using lib "co.fs2::fs2-io::3.9.2"
+//> using lib "io.chrisdavenport::crossplatformioapp:0.1.0"
+//> using lib "co.fs2::fs2-io::3.9.3"
 //> using lib "io.lemonlabs::scala-uri::4.0.3"
 //> using lib "org.typelevel::cats-parse::0.3.10"
 //> using lib "org.typelevel::cats-mtl::1.4.0"
+//> using lib "io.circe::circe-core:0.14.6"
+//> using lib "org.http4s::http4s-ember-server:0.23.23"
+//> using lib "org.http4s::http4s-dsl:0.23.23"
+//> using lib "org.http4s::http4s-circe:0.23.23"
 //> using options "-Wunused:all", "-Ykind-projector:underscores", "-Wnonunit-statement", "-Wvalue-discard"
 package badlang
 
@@ -11,6 +16,9 @@ import analysis.*
 import cats.effect.IO
 import cats.effect.kernel.Resource
 import cats.implicits.*
+import fs2.io.file.Files
+import fs2.io.file.Path
+import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
 import langoustine.lsp.aliases.Definition
@@ -27,9 +35,14 @@ import langoustine.lsp.runtime.Opt
 import langoustine.lsp.structures.DiagnosticOptions
 import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.Location
+import langoustine.lsp.structures.RelatedFullDocumentDiagnosticReport
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
+import langoustine.lsp.structures.TextEdit
+import langoustine.lsp.structures.WorkspaceEdit
 import parser.*
+
+import java.nio.file.NoSuchFileException
 
 object Server {
 
@@ -84,17 +97,20 @@ object Server {
           )
       )
       .handleRequest(textDocument.definition) { in =>
-        docs.get(in.params.textDocument.uri).map(td => parser.parse(td.content).toOption).map {
-          case None => Opt.empty
-          case Some(file) =>
-            file
-              .findReferenceAt(in.params.position.toModel)
-              .flatMap(sym => file.findDefinition(sym.value))
-              .map { sym =>
-                Definition(Location(in.params.textDocument.uri, sym.range.toLSP))
-              }
-              .toOpt
-        }
+        docs
+          .get(in.params.textDocument.uri)
+          .map(td => parser.parse(td.content).toOption)
+          .map {
+            case None => None
+            case Some(file) =>
+              file
+                .findReferenceAt(in.params.position.toModel)
+                .flatMap(sym => file.findDefinition(sym.value))
+                .map { sym =>
+                  Definition(Location(in.params.textDocument.uri, sym.range.toLSP))
+                }
+          }
+          .map(_.toOpt)
       }
       .handleRequest(textDocument.diagnostic)(in => diagnostics(in.params, docs))
 
