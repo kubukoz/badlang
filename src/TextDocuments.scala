@@ -5,8 +5,8 @@ import cats.effect.IO
 import cats.effect.implicits.*
 import fs2.io.file.Files
 import fs2.io.file.Path
+import io.lemonlabs.uri.Uri
 import langoustine.lsp.runtime.DocumentUri
-import org.http4s.Uri
 
 trait TextDocuments {
 
@@ -29,7 +29,7 @@ object TextDocuments {
         .map(Document(_, true))
         .getOrElseF {
           Files[IO]
-            .readUtf8(Path(Uri.fromString(uri.value).toTry.get.path.toString))
+            .readUtf8(Path(Uri.parse(uri.value).path.toString))
             .compile
             .string
             .map(Document(_, false))
