@@ -19,9 +19,9 @@ object Api {
   ): Resource[IO, org.http4s.server.Server] = {
     import org.http4s.dsl.io.*
     import org.http4s.circe.CirceEntityCodec.*
-    import io.circe.generic.auto.*
 
     given KeyEncoder[DocumentUri] = KeyEncoder[String].contramap(_.value)
+    given Encoder[Document] = Encoder.AsObject.derived
 
     EmberServerBuilder
       .default[IO]

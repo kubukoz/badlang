@@ -1,13 +1,14 @@
 //> using scala "3.3.1"
 //> using lib "tech.neander::langoustine-app::0.0.21"
-//> using lib "org.http4s::http4s-ember-server::0.23.23"
-//> using lib "org.http4s::http4s-circe::0.23.23"
-//> using lib "org.http4s::http4s-dsl::0.23.23"
-//> using lib "co.fs2::fs2-io::3.9.2"
-//> using lib "io.circe::circe-generic:0.14.6"
-//> using lib "io.chrisdavenport::crossplatformioapp::0.1.0"
+//> using lib "io.chrisdavenport::crossplatformioapp:0.1.0"
+//> using lib "co.fs2::fs2-io::3.9.3"
+//> using lib "io.lemonlabs::scala-uri::4.0.3"
 //> using lib "org.typelevel::cats-parse::0.3.10"
-//> using lib "org.typelevel::cats-mtl::1.3.1"
+//> using lib "org.typelevel::cats-mtl::1.4.0"
+//> using lib "io.circe::circe-core:0.14.6"
+//> using lib "org.http4s::http4s-ember-server:0.23.23"
+//> using lib "org.http4s::http4s-dsl:0.23.23"
+//> using lib "org.http4s::http4s-circe:0.23.23"
 //> using options "-Wunused:all", "-Ykind-projector:underscores", "-Wnonunit-statement", "-Wvalue-discard"
 package badlang
 
@@ -15,19 +16,14 @@ import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.kernel.Resource
 import cats.implicits.*
-import cats.parse.Caret
-import cats.parse.LocationMap
 import fs2.io.file.Files
 import fs2.io.file.Path
 import io.chrisdavenport.crossplatformioapp.CrossPlatformIOApp
 import jsonrpclib.fs2.given
 import langoustine.lsp.LSPBuilder
 import langoustine.lsp.aliases.Definition
-import langoustine.lsp.aliases.DocumentDiagnosticReport
 import langoustine.lsp.aliases.TextDocumentContentChangeEvent
 import langoustine.lsp.app.LangoustineApp
-import langoustine.lsp.enumerations.DiagnosticSeverity
-import langoustine.lsp.enumerations.InlayHintKind
 import langoustine.lsp.enumerations.MessageType
 import langoustine.lsp.enumerations.SymbolKind
 import langoustine.lsp.enumerations.TextDocumentSyncKind
@@ -37,25 +33,19 @@ import langoustine.lsp.requests.textDocument
 import langoustine.lsp.requests.window
 import langoustine.lsp.runtime.DocumentUri
 import langoustine.lsp.runtime.Opt
-import langoustine.lsp.structures.Diagnostic
 import langoustine.lsp.structures.DiagnosticOptions
 import langoustine.lsp.structures.DocumentSymbol
 import langoustine.lsp.structures.InitializeResult
 import langoustine.lsp.structures.InlayHint
 import langoustine.lsp.structures.Location
-import langoustine.lsp.structures.Position
 import langoustine.lsp.structures.RelatedFullDocumentDiagnosticReport
 import langoustine.lsp.structures.ServerCapabilities
 import langoustine.lsp.structures.ShowMessageParams
 import langoustine.lsp.structures.TextEdit
 import langoustine.lsp.structures.WorkspaceEdit
+import parser.*
 
 import java.nio.file.NoSuchFileException
-
-case class Document(
-  content: String,
-  cached: Boolean,
-)
 
 object Server {
 
@@ -100,10 +90,10 @@ object Server {
             }
             .traverse_(cache.set(in.textDocument.uri, _))
       }
-      .handleNotification(textDocument.didClose) { in =>
-        cache.remove(in.params.textDocument.uri)
+      .handleNotification(textDocument.didOpen) { in =>
+        cache.set(in.params.textDocument.uri, in.params.textDocument.text)
       }
-      .handleNotification(textDocument.didSave) { in =>
+      .handleNotification(textDocument.didClose) { in =>
         cache.remove(in.params.textDocument.uri)
       }
       .handleNotification(initialized)(
@@ -225,78 +215,7 @@ object Server {
           .map(_.map(_.toVector).toOpt)
       }
       .handleRequest(textDocument.diagnostic) { in =>
-        docs.get(in.params.textDocument.uri).map(_.content).map { fileText =>
-          val map = LocationMap(fileText)
-          val lastOffset = map.toCaretUnsafe(fileText.length)
-          extension (
-            c: Caret
-          ) def toLSPPosition: Position = Position(c.line, c.col)
-
-          import analysis.*
-          import parser.*
-
-          def withParsed(
-            parsed: SourceFile[parser.T]
-          ) = {
-            val lints = parsed.lint.fold(_.toList, _ => Nil)
-
-            parsed
-              .typecheck
-              .match {
-                case Right(_)     => Vector.empty
-                case Left(errors) => errors.toList.toVector
-              }
-              .concat(lints)
-              .map { diag =>
-                Diagnostic(
-                  range = diag.range.toLSP,
-                  severity = Opt(diag.level match {
-                    case badlang.DiagnosticLevel.Error   => DiagnosticSeverity.Error
-                    case badlang.DiagnosticLevel.Warning => DiagnosticSeverity.Warning
-                  }),
-                  message = diag.issue.message,
-                )
-              }
-          }
-          val items =
-            parser.parse(fileText) match {
-              case Right(parsed) => withParsed(parsed)
-
-              case Left((msg, offset)) =>
-                val parseError = Vector(
-                  Diagnostic(
-                    range = langoustine
-                      .lsp
-                      .structures
-                      .Range(
-                        map.toCaretUnsafe(offset).toLSPPosition,
-                        lastOffset.toLSPPosition,
-                      ),
-                    severity = Opt(DiagnosticSeverity.Error),
-                    message = "Parsing error: expected " + msg,
-                  )
-                )
-
-                // minimal-effort attempt: parse all previous lines and get some diagnostics from that.
-                // technically we could try and parse each line separately anyway (and probably should), but this is a start.
-                val parsedEarlier = {
-                  val lineFailed = map.toCaretUnsafe(offset)
-                  val lineStart = map.toOffset(lineFailed.line, 0).getOrElse(sys.error("no offset"))
-                  parser.parse(fileText.take(lineStart))
-                }
-
-                val extraDiags = parsedEarlier.fold(_ => Nil, withParsed)
-
-                parseError ++ extraDiags
-            }
-
-          DocumentDiagnosticReport(
-            RelatedFullDocumentDiagnosticReport(
-              kind = "full",
-              items = items,
-            )
-          )
-        }
+        diagnostics(in.params, docs)
       }
 
   import parser.T
