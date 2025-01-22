@@ -24,6 +24,7 @@ import langoustine.lsp.LSPBuilder
 import langoustine.lsp.aliases.Definition
 import langoustine.lsp.aliases.TextDocumentContentChangeEvent
 import langoustine.lsp.app.LangoustineApp
+import langoustine.lsp.enumerations.CompletionItemKind
 import langoustine.lsp.enumerations.MessageType
 import langoustine.lsp.enumerations.SymbolKind
 import langoustine.lsp.enumerations.TextDocumentSyncKind
@@ -33,6 +34,8 @@ import langoustine.lsp.requests.textDocument
 import langoustine.lsp.requests.window
 import langoustine.lsp.runtime.DocumentUri
 import langoustine.lsp.runtime.Opt
+import langoustine.lsp.structures.CompletionItem
+import langoustine.lsp.structures.CompletionOptions
 import langoustine.lsp.structures.DiagnosticOptions
 import langoustine.lsp.structures.DocumentSymbol
 import langoustine.lsp.structures.InitializeResult
@@ -71,6 +74,7 @@ object Server {
               renameProvider = Opt(true),
               inlayHintProvider = Opt(true),
               documentSymbolProvider = Opt(true),
+              completionProvider = Opt(CompletionOptions()),
             )
           )
         )
@@ -217,6 +221,50 @@ object Server {
       .handleRequest(textDocument.diagnostic) { in =>
         diagnostics(in.params, docs)
       }
+      .handleRequest(textDocument.completion) { in =>
+        IO.pure {
+          Opt {
+            CompletionItemKind.ALL.toVector.map { kind =>
+              CompletionItem(
+                label = kindToName(kind),
+                kind = Opt(kind),
+                sortText = Opt(kind.toString.padTo(3, '0')),
+              )
+            }
+          }
+        }
+      }
+
+  // https://github.com/neandertech/langoustine/issues/198
+  def kindToName(
+    kind: CompletionItemKind
+  ): String = Map(
+    CompletionItemKind.Text -> "Text",
+    CompletionItemKind.Method -> "Method",
+    CompletionItemKind.Function -> "Function",
+    CompletionItemKind.Constructor -> "Constructor",
+    CompletionItemKind.Field -> "Field",
+    CompletionItemKind.Variable -> "Variable",
+    CompletionItemKind.Class -> "Class",
+    CompletionItemKind.Interface -> "Interface",
+    CompletionItemKind.Module -> "Module",
+    CompletionItemKind.Property -> "Property",
+    CompletionItemKind.Unit -> "Unit",
+    CompletionItemKind.Value -> "Value",
+    CompletionItemKind.Enum -> "Enum",
+    CompletionItemKind.Keyword -> "Keyword",
+    CompletionItemKind.Snippet -> "Snippet",
+    CompletionItemKind.Color -> "Color",
+    CompletionItemKind.File -> "File",
+    CompletionItemKind.Reference -> "Reference",
+    CompletionItemKind.Folder -> "Folder",
+    CompletionItemKind.EnumMember -> "EnumMember",
+    CompletionItemKind.Constant -> "Constant",
+    CompletionItemKind.Struct -> "Struct",
+    CompletionItemKind.Event -> "Event",
+    CompletionItemKind.Operator -> "Operator",
+    CompletionItemKind.TypeParameter -> "TypeParameter",
+  ).apply(kind)
 
   import parser.T
 
