@@ -235,6 +235,7 @@ object Server {
         }
       }
 
+  // https://github.com/neandertech/langoustine/issues/198
   def kindToName(
     kind: CompletionItemKind
   ): String = Map(
